@@ -127,6 +127,29 @@ async def generate_weekly_summary(metrics: Dict[str, Any]) -> str:
             f"- Escalations: {metrics.get('escalations', 0)}\n"
             f"Top topics: {', '.join(metrics.get('top_topics', []))}"
         )
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"summary-{metrics.get('period_end', 'week')}",
+            system_message=(
+                "You are a support ops analyst. Given weekly metrics JSON, produce a concise "
+                "leadership summary in Markdown with sections: Highlights, Risk Areas, Recommendations. "
+                "Be direct, quantitative, no fluff. 200-300 words."
+            ),
+        ).with_model(MODEL_PROVIDER, MODEL_NAME)
+        text = await chat.send_message(UserMessage(text=json.dumps(metrics, indent=2)))
+        return text if isinstance(text, str) else str(text)
+    except Exception as e:
+        logger.warning(f"AI summary failed: {e}")
+        return (
+            f"Weekly Ops Summary (fallback)\n\n"
+            f"- Cases opened: {metrics.get('opened', 0)}\n"
+            f"- Cases solved: {metrics.get('solved', 0)}\n"
+            f"- SLA breaches: {metrics.get('sla_breaches', 0)}\n"
+            f"- Escalations: {metrics.get('escalations', 0)}\n"
+            f"Top topics: {', '.join(metrics.get('top_topics', []))}"
+        )
 
 async def draft_reply(case: Dict[str, Any], customer: Dict[str, Any], kb_snippets: List[Dict[str, Any]]) -> str:
     """Generate an agent reply draft grounded in case + KB. PII-redacted input."""
@@ -164,23 +187,6 @@ async def draft_reply(case: Dict[str, Any], customer: Dict[str, Any], kb_snippet
     except Exception as e:
         logger.warning(f"AI draft failed: {e}")
         return fallback
-
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"summary-{metrics.get('period_end', 'week')}",
-            system_message=(
-                "You are a support ops analyst. Given weekly metrics JSON, produce a concise "
-                "leadership summary in Markdown with sections: Highlights, Risk Areas, Recommendations. "
-                "Be direct, quantitative, no fluff. 200-300 words."
-            ),
-        ).with_model(MODEL_PROVIDER, MODEL_NAME)
-        text = await chat.send_message(UserMessage(text=json.dumps(metrics, indent=2)))
-        return text if isinstance(text, str) else str(text)
-    except Exception as e:
-        logger.warning(f"AI summary failed: {e}")
-        return f"Weekly summary (fallback): {json.dumps(metrics)}"
 
 
 def score_similarity(text_a: str, text_b: str) -> float:

@@ -338,13 +338,19 @@ async def ai_draft(case_id: str, user: dict = Depends(current_user)):
 async def bulk_reassign(case_ids: List[str], assigned_user_id: str, user: dict = Depends(current_user)):
     if user["role"] not in ("lead", "admin"):
         raise HTTPException(403, "Only leads/admins")
-    await db.cases.update_many(
+    assigned_valid = await db.users.find_one({
+        "id": assigned_user_id,
+        "company_id": user["company_id"],
+    }, {"_id": 0})
+    if not assigned_valid:
+        raise HTTPException(400, "Invalid assignee")
+    result = await db.cases.update_many(
         {"id": {"$in": case_ids}, "company_id": user["company_id"]},
         {"$set": {"assigned_user_id": assigned_user_id}},
     )
     for cid in case_ids:
         await log_event(cid, "reassignment", "user", user["id"], {"to": assigned_user_id, "bulk": True})
-    return {"updated": len(case_ids)}
+    return {"updated": result.modified_count}
 
 
 # ---------- Knowledge & Macros ----------
@@ -759,7 +765,13 @@ async def public_snapshot(token: str):
     if not snap:
         raise HTTPException(404, "Snapshot not found or revoked")
     # Expiry check
-    if snap.get("expires_at") and snap["expires_at"] < iso_now():
+    expires_at = None
+    if snap.get("expires_at"):
+        try:
+            expires_at = datetime.fromisoformat(snap["expires_at"].replace("Z", "+00:00"))
+        except Exception:
+            expires_at = None
+    if expires_at and expires_at < datetime.now(timezone.utc):
         raise HTTPException(410, "Snapshot expired")
     company_id = snap["company_id"]
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
