@@ -7,8 +7,6 @@ body {
     font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: #FFFFFF;
-    color: #09090B;
 }
 
 .font-display { font-family: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
@@ -24,28 +22,44 @@ body {
         --popover-foreground: 240 10% 4%;
         --primary: 224 100% 33%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 240 5% 96%;
-        --secondary-foreground: 240 10% 4%;
+        --secondary: 240 5% 16%;
+        --secondary-foreground: 240 10% 98%;
         --muted: 240 5% 96%;
         --muted-foreground: 240 4% 46%;
-        --accent: 240 5% 96%;
-        --accent-foreground: 240 10% 4%;
+        --accent: 224 100% 33%;
+        --accent-foreground: 0 0% 100%;
         --destructive: 0 72% 45%;
         --destructive-foreground: 0 0% 100%;
         --border: 240 6% 90%;
         --input: 240 6% 90%;
         --ring: 224 100% 33%;
-        --chart-1: 224 100% 33%;
-        --chart-2: 142 71% 40%;
-        --chart-3: 0 72% 51%;
-        --chart-4: 32 95% 44%;
-        --chart-5: 262 71% 45%;
         --radius: 0;
+    }
+    [data-theme="dark"] {
+        --background: 240 10% 6%;
+        --foreground: 0 0% 100%;
+        --card: 240 10% 10%;
+        --card-foreground: 0 0% 100%;
+        --popover: 240 10% 10%;
+        --popover-foreground: 0 0% 100%;
+        --primary: 224 100% 60%;
+        --primary-foreground: 240 10% 10%;
+        --secondary: 240 4% 22%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 240 4% 22%;
+        --muted-foreground: 240 4% 70%;
+        --accent: 224 100% 60%;
+        --accent-foreground: 240 10% 10%;
+        --destructive: 0 72% 45%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 240 4% 26%;
+        --input: 240 4% 26%;
+        --ring: 224 100% 60%;
     }
 }
 
 @layer base {
-    * { @apply border-border; }
+    * { @apply border-border transition-colors duration-150; }
     body { @apply bg-background text-foreground; }
     ::selection { background: #002FA7; color: #fff; }
 }
@@ -59,5 +73,5 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #d4d4d8; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 999px; }
 ::-webkit-scrollbar-track { background: transparent; }
