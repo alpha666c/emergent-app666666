@@ -118,7 +118,6 @@ async def classify_case(subject: str, description: str, customer_context: str = 
 
 
 async def generate_weekly_summary(metrics: Dict[str, Any]) -> str:
-    """Compose a weekly ops summary from metrics."""
     if not EMERGENT_LLM_KEY:
         return (
             f"Weekly Ops Summary\n\n"
@@ -128,6 +127,44 @@ async def generate_weekly_summary(metrics: Dict[str, Any]) -> str:
             f"- Escalations: {metrics.get('escalations', 0)}\n"
             f"Top topics: {', '.join(metrics.get('top_topics', []))}"
         )
+
+async def draft_reply(case: Dict[str, Any], customer: Dict[str, Any], kb_snippets: List[Dict[str, Any]]) -> str:
+    """Generate an agent reply draft grounded in case + KB. PII-redacted input."""
+    safe_desc = redact_pii(case.get("description", ""))
+    kb_text = "\n\n".join([f"- {k.get('title')}: {redact_pii(k.get('body',''))[:400]}" for k in kb_snippets[:3]])
+    ctx = (
+        f"CUSTOMER: {customer.get('name','the customer')} (segment={customer.get('segment')}, risk={customer.get('risk_level')})\n"
+        f"CASE SUBJECT: {case.get('subject')}\n"
+        f"CHANNEL: {case.get('channel')} | TOPIC: {case.get('ai_topic')} | INTENT: {case.get('ai_intent')} | RISK: {case.get('ai_risk')}\n\n"
+        f"CASE DESCRIPTION:\n{safe_desc}\n\n"
+        f"RELEVANT KNOWLEDGE:\n{kb_text if kb_text else '(none)'}\n"
+    )
+    fallback = (
+        f"Hi {customer.get('name','there')},\n\nThanks for reaching out about \"{case.get('subject')}\". "
+        f"We're reviewing your case and will follow up shortly. "
+        f"If you have any additional information that could help us investigate, please share it.\n\nBest regards,\nSupport Team"
+    )
+    if not EMERGENT_LLM_KEY:
+        return fallback
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"draft-{case.get('id','x')[:8]}",
+            system_message=(
+                "You are an expert customer support agent for a high-volume digital business "
+                "(crypto exchanges, fintechs, SaaS). Draft a concise, warm, policy-compliant reply. "
+                "Rules: (1) Only reference facts from the provided context or knowledge — NEVER invent account "
+                "actions, balances, refunds, or timelines. (2) If context is insufficient, ask ONE clarifying "
+                "question. (3) 90-180 words. (4) Do not use marketing language. (5) Sign off as 'Support Team'."
+            ),
+        ).with_model(MODEL_PROVIDER, MODEL_NAME)
+        text = await chat.send_message(UserMessage(text=ctx + "\nWrite the reply now."))
+        return text if isinstance(text, str) else str(text)
+    except Exception as e:
+        logger.warning(f"AI draft failed: {e}")
+        return fallback
+
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         chat = LlmChat(
@@ -147,7 +184,6 @@ async def generate_weekly_summary(metrics: Dict[str, Any]) -> str:
 
 
 def score_similarity(text_a: str, text_b: str) -> float:
-    """Cheap keyword-overlap similarity (0..1)."""
     if not text_a or not text_b:
         return 0.0
     a = set(text_a.lower().split())

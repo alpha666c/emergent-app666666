@@ -3,12 +3,22 @@ import api from "@/lib/api";
 
 const SECTIONS = [
   {
+    id: "diff", title: "0. Diff vs v1",
+    items: [
+      ["NEW backend route", "POST /api/cases/{id}/ai-draft — Claude Sonnet 4.5 generates a policy-compliant reply grounded in case + top-3 KB items. PII redacted before LLM call. Returns {draft, requires_confirmation, grounded_kb}. Draft events append to CaseEvent audit log."],
+      ["NEW frontend page", "/cases/new — Case Composer UI: customer picker, subject, description, channel, priority, tags. On submit → POST /cases which runs AI classification + auto-routing + workload-balanced assignment. Closes the product loop end-to-end."],
+      ["NEW UI", "Inbox now has a '+ New Case' CTA. Case Detail has a 'Draft with AI' button that fills the reply textarea and flags high-risk cases with a human-confirmation gate before send."],
+      ["NEW guardrail", "High-risk topics (security, withdrawal, kyc) or ai_risk=high require an explicit browser confirm() dialog before posting the reply. Wired end-to-end from /ai-draft response to Post button."],
+      ["Polished", "Onboarding hero now includes a '90-second tour' line. Handoff has Print/PDF + jump-to-summary buttons, versioned header (v2)."],
+    ],
+  },
+  {
     id: "build-status", title: "1. Build Status",
     items: [
-      ["Fully completed", "Multi-tenant data model, JWT auth + RBAC, SLA + routing engine, AI classification, case detail with copilot suggestions, Incident War-Room, AI Match Report on resolve, QA sampling + review, Coaching board, Experiments with before/after FRT, Ops dashboard with charts, KB + macros libraries, in-app Getting Started."],
-      ["Partial", "Scheduler-driven weekly summaries: endpoint present + manual 'Generate now'; APScheduler wiring deferred. Audit log: captured through CaseEvent; standalone AI activity log per-case exposed via events."],
-      ["Not started", "Social login, mobile companion, per-tenant AI data-visibility config UI, high-risk queue human-confirmation gate UI (backend hooks in place)."],
-      ["Shortcuts", "Similarity ranking for macros/KB uses lightweight token overlap + condition boosts (no vector DB). AI is used at classification and match-report time only; streaming reply-drafting not yet wired."],
+      ["Fully completed", "Multi-tenant data model, JWT+RBAC, SLA + routing engines, AI classification, **case composer**, **AI reply drafting**, Case Detail w/ macro/KB suggestions, Incident War-Room + AI Match Report, QA sampling & review, Coaching board, Experiments (baseline vs live FRT), Ops dashboard (Recharts), KB + Macros libraries, Onboarding + Handoff pages."],
+      ["Partial", "AI reply drafting returns full draft (non-streaming) — Claude Sonnet 4.5 in emergentintegrations doesn't yet expose SSE streaming; drafting shows a 'Drafting…' state. Weekly summary/QA cron: manual endpoints only; APScheduler installed but not activated."],
+      ["Not started", "Social login, mobile companion, per-tenant AI-visibility config UI, queue/SLA admin editor UI."],
+      ["Shortcuts", "Similarity uses token-overlap + condition boosts (no vector DB). AI runs at classification, draft, and match-report time."],
     ],
   },
   {
@@ -39,11 +49,11 @@ const SECTIONS = [
   {
     id: "ai", title: "4. AI Implementation",
     items: [
-      ["Live LLM features", "Case classification (topic/intent/risk/summary) on POST /cases; Match Report generation on incident resolve; Weekly summary on /summaries/generate."],
+      ["Live LLM features", "Case classification on POST /cases · **Reply drafting on POST /cases/{id}/ai-draft** · Match Report on incident resolve · Weekly summary on /summaries/generate."],
       ["Provider", "Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) via Emergent Universal LLM key + emergentintegrations."],
       ["Prompts", "Classifier: strict JSON output over enum {topic, intent, risk, summary} — tuned for crypto/fintech topics but generic. Match Report: Markdown post-mortem with Highlights / Risk Areas / Recommendations."],
       ["Real vs placeholder", "Real classification with keyword fallback if LLM unavailable. Similarity for macro/KB matching is deterministic (token overlap + condition boosts), not embeddings — real but light."],
-      ["Guardrails", "PII redaction (cards, IBAN, emails, wallets, phones) before any LLM call. Fallback classifier when LLM fails. Every AI event logged as CaseEvent (event_type='ai_classification') → per-case AI activity log."],
+      ["Guardrails", "PII redaction (cards, IBAN, emails, wallets, phones) before any LLM call. Fallback classifier + fallback reply when LLM fails. Draft prompt forbids inventing account actions/balances/timelines. **High-risk topics (security/withdrawal/kyc) trigger a human-confirmation modal before send.** Every AI event logged as CaseEvent (per-case AI activity log)."],
     ],
   },
   {
@@ -120,9 +130,17 @@ export default function Handoff() {
   }, []);
   return (
     <div className="p-6 lg:p-10 max-w-5xl">
-      <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering handoff</p>
-      <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter mt-1">SITREP</h1>
-      <p className="text-sm text-zinc-600 mt-2 max-w-3xl">Live snapshot of the Touchline SupportOps Brain build for review + next-iteration planning.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering handoff · v2</p>
+          <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter mt-1">SITREP</h1>
+          <p className="text-sm text-zinc-600 mt-2 max-w-3xl">Live snapshot of the Touchline SupportOps Brain build for review + next-iteration planning.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => window.print()} data-testid="print-handoff" className="border border-zinc-300 px-3 py-2 text-xs hover:border-zinc-900 transition-colors">Print / PDF</button>
+          <a href="#executive-summary" className="bg-[#002FA7] text-white px-3 py-2 text-xs hover:bg-[#00227A]">Jump to summary ↓</a>
+        </div>
+      </div>
 
       {stats && (
         <div className="grid grid-cols-3 md:grid-cols-6 gap-0 border border-zinc-200 mt-6" data-testid="handoff-live-stats">
@@ -150,7 +168,7 @@ export default function Handoff() {
           </section>
         ))}
 
-        <section data-testid="executive-summary">
+        <section id="executive-summary" data-testid="executive-summary">
           <h2 className="font-display text-2xl font-bold tracking-tight border-b-2 border-[#002FA7] pb-2 text-[#002FA7]">Executive Summary</h2>
           <ol className="mt-4 space-y-2 list-decimal list-inside text-sm text-zinc-800 leading-relaxed">
             {EXECUTIVE_SUMMARY.map((b, i) => <li key={i} className="pl-1">{b}</li>)}

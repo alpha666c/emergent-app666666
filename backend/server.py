@@ -22,7 +22,7 @@ from models import (
     iso_now, utcnow, new_id,
 )
 from auth import hash_password, verify_password, create_token, get_current_user_payload
-from ai import classify_case, generate_weekly_summary, rank_matches, score_similarity
+from ai import classify_case, generate_weekly_summary, rank_matches, score_similarity, draft_reply
 from routing import compute_sla_due, sla_status, match_queue, pick_agent, priority_from_ai
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -313,6 +313,23 @@ async def add_note(case_id: str, body: NoteCreate, user: dict = Depends(current_
         await db.cases.update_one({"id": case_id}, {"$set": updates})
     await log_event(case_id, "note", "user", user["id"], {"body": body.body, "author": user["name"]})
     return {"ok": True}
+
+
+@api.post("/cases/{case_id}/ai-draft")
+async def ai_draft(case_id: str, user: dict = Depends(current_user)):
+    c = await db.cases.find_one({"id": case_id}, {"_id": 0})
+    if not c or not _authorize_case_visibility(c, user):
+        raise HTTPException(404, "Case not found")
+    customer = await db.customers.find_one({"id": c["customer_id"]}, {"_id": 0}) or {}
+    kb = await db.knowledge_items.find({"company_id": user["company_id"]}, {"_id": 0}).to_list(200)
+    case_text = f"{c['subject']} {c['description']} {c.get('ai_topic','')}"
+    ranked_kb = rank_matches(case_text, kb, "body", top_k=3)
+    draft = await draft_reply(c, customer, ranked_kb)
+    # High-risk queues: require human confirmation before send (frontend gate)
+    requires_confirmation = c.get("ai_risk") == "high" or c.get("ai_topic") in ("security", "withdrawal", "kyc")
+    await log_event(case_id, "ai_classification", "system", None,
+                    {"action": "draft_generated", "grounded_kb": [k["id"] for k in ranked_kb], "requires_confirmation": requires_confirmation})
+    return {"draft": draft, "requires_confirmation": requires_confirmation, "grounded_kb": ranked_kb}
 
 
 @api.post("/cases/bulk-reassign")

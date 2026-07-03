@@ -120,6 +120,9 @@ export default function Onboarding() {
         <p className="text-lg sm:text-xl text-zinc-600 mt-5 max-w-3xl leading-relaxed">
           Centralize cases, route with AI, protect SLAs, and keep customers safe.
         </p>
+        <p className="text-sm text-zinc-500 mt-3 max-w-3xl">
+          <span className="font-mono text-zinc-900">90-second tour →</span> Log in as Agent, work a case with AI Draft. Switch to Manager, drive the War-Room. Finish as Ops, read the Match Report.
+        </p>
         <div className="mt-8 flex gap-3 flex-wrap">
           <Link to="/inbox" data-testid="hero-cta-inbox" className="bg-[#002FA7] text-white px-5 py-3 text-sm font-medium hover:bg-[#00227A] transition-colors flex items-center gap-2">
             Take the field <ArrowRight size={14} weight="bold" />

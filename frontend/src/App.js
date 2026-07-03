@@ -19,6 +19,7 @@ import KnowledgeBase from "@/pages/KnowledgeBase";
 import Macros from "@/pages/Macros";
 import Onboarding from "@/pages/Onboarding";
 import Handoff from "@/pages/Handoff";
+import CaseNew from "@/pages/CaseNew";
 import "@/App.css";
 
 function ProtectedLayout() {
@@ -47,6 +48,7 @@ export default function App() {
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<Inbox />} />
+            <Route path="/cases/new" element={<CaseNew />} />
             <Route path="/cases/:id" element={<CaseDetail />} />
             <Route path="/queues" element={<Queues />} />
             <Route path="/team" element={<TeamPerformance />} />

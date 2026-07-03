@@ -4,13 +4,15 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import SLABadge from "@/components/SLABadge";
 import { fmtRelative, fmtDateTime, priorityClass, statusClass } from "@/lib/format";
-import { CaretLeft, Sparkle, BookOpenText, ChatCircle, ClockClockwise, User } from "@phosphor-icons/react";
+import { CaretLeft, Sparkle, BookOpenText, ChatCircle, ClockClockwise, User, Warning } from "@phosphor-icons/react";
 
 export default function CaseDetail() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]);
   const [note, setNote] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
 
   useEffect(() => { load(); api.get("/users").then(r => setUsers(r.data)); /* eslint-disable-next-line */ }, [id]);
 
@@ -27,10 +29,23 @@ export default function CaseDetail() {
 
   const addNote = async () => {
     if (!note.trim()) return;
+    if (confirmSend && !window.confirm("This is a high-risk case. Confirm the reply is policy-compliant before sending.")) return;
     await api.post(`/cases/${id}/notes`, { body: note });
-    setNote("");
+    setNote(""); setConfirmSend(false);
     await load();
     toast.success("Note added");
+  };
+
+  const generateDraft = async () => {
+    setDrafting(true);
+    try {
+      const { data } = await api.post(`/cases/${id}/ai-draft`);
+      setNote(data.draft);
+      setConfirmSend(!!data.requires_confirmation);
+      toast.success(data.requires_confirmation ? "AI draft ready — human confirmation required" : "AI draft ready");
+    } catch (err) {
+      toast.error("Draft failed");
+    } finally { setDrafting(false); }
   };
 
   const applyMacro = (m) => { setNote((n) => (n ? n + "\n\n" : "") + m.body); toast.info(`Macro "${m.name}" inserted`); };
@@ -127,16 +142,33 @@ export default function CaseDetail() {
 
           {/* Reply / note */}
           <div className="border border-zinc-200 bg-white p-4">
-            <div className="text-[10px] uppercase tracking-widest font-semibold text-zinc-500 mb-2">Reply / Internal Note</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] uppercase tracking-widest font-semibold text-zinc-500">Reply / Internal Note</div>
+              <button
+                data-testid="ai-draft-btn"
+                onClick={generateDraft}
+                disabled={drafting}
+                className="text-xs border border-[#002FA7] text-[#002FA7] px-3 py-1 hover:bg-[#002FA7] hover:text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Sparkle size={12} weight="fill" />
+                {drafting ? "Drafting…" : "Draft with AI"}
+              </button>
+            </div>
             <textarea
               data-testid="note-textarea"
-              value={note} onChange={(e) => setNote(e.target.value)} rows={5}
-              placeholder="Type a reply, or use a macro suggestion…"
+              value={note} onChange={(e) => setNote(e.target.value)} rows={6}
+              placeholder="Type a reply, click 'Draft with AI', or use a macro suggestion…"
               className="w-full border border-zinc-300 p-2.5 text-sm font-mono focus:outline-none focus:border-[#002FA7]"
             />
+            {confirmSend && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2" data-testid="confirmation-required">
+                <Warning size={14} weight="fill" className="text-amber-600" />
+                <span>High-risk topic — human confirmation required before send.</span>
+              </div>
+            )}
             <div className="flex justify-end mt-3">
               <button data-testid="add-note-btn" onClick={addNote} className="bg-[#002FA7] text-white px-4 py-2 text-sm hover:bg-[#00227A] transition-colors">
-                Post & log first response
+                {confirmSend ? "Confirm & post" : "Post & log first response"}
               </button>
             </div>
           </div>

@@ -42,6 +42,10 @@ export default function Inbox() {
           <h1 className="font-display text-3xl font-bold tracking-tight mt-1">The Line-up</h1>
           <p className="text-sm text-zinc-500 mt-1">Your plays for today. Work the SLA, work the case.</p>
         </div>
+        <Link to="/cases/new" data-testid="new-case-btn"
+          className="bg-[#002FA7] text-white px-4 py-2 text-sm hover:bg-[#00227A] transition-colors flex items-center gap-2">
+          + New Case
+        </Link>
       </div>
 
       {dash && (
