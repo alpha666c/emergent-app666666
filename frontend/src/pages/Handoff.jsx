@@ -3,13 +3,13 @@ import api from "@/lib/api";
 
 const SECTIONS = [
   {
-    id: "diff", title: "0. Diff vs v1",
+    id: "diff", title: "0. Diff vs v2",
     items: [
-      ["NEW backend route", "POST /api/cases/{id}/ai-draft — Claude Sonnet 4.5 generates a policy-compliant reply grounded in case + top-3 KB items. PII redacted before LLM call. Returns {draft, requires_confirmation, grounded_kb}. Draft events append to CaseEvent audit log."],
-      ["NEW frontend page", "/cases/new — Case Composer UI: customer picker, subject, description, channel, priority, tags. On submit → POST /cases which runs AI classification + auto-routing + workload-balanced assignment. Closes the product loop end-to-end."],
-      ["NEW UI", "Inbox now has a '+ New Case' CTA. Case Detail has a 'Draft with AI' button that fills the reply textarea and flags high-risk cases with a human-confirmation gate before send."],
-      ["NEW guardrail", "High-risk topics (security, withdrawal, kyc) or ai_risk=high require an explicit browser confirm() dialog before posting the reply. Wired end-to-end from /ai-draft response to Post button."],
-      ["Polished", "Onboarding hero now includes a '90-second tour' line. Handoff has Print/PDF + jump-to-summary buttons, versioned header (v2)."],
+      ["NEW APScheduler crons", "Two AsyncIOScheduler jobs registered at FastAPI startup: **weekly_qa_sampling** (Mon 00:00 UTC) and **weekly_summary** (Mon 00:15 UTC). Both wrap the same logic as manual endpoints, iterate every company, and log success/error to db.job_runs (visible in /api/system/scheduler)."],
+      ["NEW styled confirmation modal", "Replaced window.confirm() with a shadcn Dialog. Modal shows Topic / AI Risk / Queue grid + full reply preview. Cancel + Confirm & Send buttons. testids: high-risk-confirm-modal, confirm-cancel, confirm-send."],
+      ["NEW public snapshot", "Admin can enable a signed, 7-day, read-only URL /handoff/public/{token}. One active token per company; enabling revokes any previous token. Public page shows company + counters + product highlights only — no case data, no PII."],
+      ["NEW API endpoints", "GET /system/scheduler (admin/lead) · POST /handoff/share (admin) · DELETE /handoff/share (admin) · GET /handoff/share/status (admin) · GET /handoff/public/{token} (unauthenticated, token-gated)."],
+      ["Files", "NEW: backend/scheduler.py, frontend/src/pages/HandoffPublic.jsx. MODIFIED: server.py, CaseDetail.jsx, Handoff.jsx, App.js. No data models or existing API contracts changed."],
     ],
   },
   {
@@ -116,7 +116,12 @@ const EXECUTIVE_SUMMARY = [
 ];
 
 export default function Handoff() {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [share, setShare] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const isAdmin = user?.role === "admin";
+
   useEffect(() => {
     Promise.all([
       api.get("/cases", { params: { limit: 1000 } }).then(r => r.data.length),
@@ -127,12 +132,37 @@ export default function Handoff() {
       api.get("/coaching").then(r => r.data.length).catch(() => 0),
     ]).then(([cases, incidents, experiments, queues, users, coaching]) =>
       setStats({ cases, incidents, experiments, queues, users, coaching })).catch(() => {});
-  }, []);
+    if (user?.role === "admin") {
+      api.get("/handoff/share/status").then(r => setShare(r.data)).catch(() => {});
+    }
+  }, [user]);
+
+  const enableShare = async () => {
+    const { data } = await api.post("/handoff/share");
+    setShare({ active: true, snapshot: data });
+    toast.success("Public snapshot enabled");
+  };
+
+  const disableShare = async () => {
+    await api.delete("/handoff/share");
+    setShare({ active: false, snapshot: null });
+    toast.success("Public snapshot revoked");
+  };
+
+  const publicUrl = share?.snapshot?.token
+    ? `${window.location.origin}/handoff/public/${share.snapshot.token}`
+    : null;
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(publicUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   return (
     <div className="p-6 lg:p-10 max-w-5xl">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering handoff · v2</p>
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering handoff · v3</p>
           <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter mt-1">SITREP</h1>
           <p className="text-sm text-zinc-600 mt-2 max-w-3xl">Live snapshot of the Touchline SupportOps Brain build for review + next-iteration planning.</p>
         </div>
@@ -150,6 +180,40 @@ export default function Handoff() {
               <div className="font-mono text-2xl mt-1">{v}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-6 border-2 border-[#002FA7]/20 bg-blue-50/40 p-5" data-testid="share-panel">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3">
+              <Share size={22} weight="fill" className="text-[#002FA7] mt-0.5" />
+              <div>
+                <div className="font-display text-lg font-bold tracking-tight">Share read-only snapshot</div>
+                <div className="text-sm text-zinc-600 mt-1">Generate a signed public URL for judges &amp; leadership. Read-only — no login required. One active token per company.</div>
+              </div>
+            </div>
+            {share?.active ? (
+              <button onClick={disableShare} data-testid="disable-share-btn" className="border border-red-600 text-red-600 px-3 py-2 text-xs hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1.5">
+                <XCircle size={14} /> Revoke
+              </button>
+            ) : (
+              <button onClick={enableShare} data-testid="enable-share-btn" className="bg-[#002FA7] text-white px-3 py-2 text-xs hover:bg-[#00227A] transition-colors flex items-center gap-1.5">
+                <Share size={14} /> Enable public link
+              </button>
+            )}
+          </div>
+          {share?.active && publicUrl && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <input readOnly value={publicUrl} data-testid="public-url"
+                className="flex-1 min-w-0 border border-zinc-300 bg-white px-3 py-2 text-xs font-mono focus:outline-none focus:border-[#002FA7]" />
+              <button onClick={copyUrl} data-testid="copy-url-btn" className="border border-zinc-300 px-3 py-2 text-xs hover:border-zinc-900 transition-colors flex items-center gap-1.5">
+                {copied ? <Check size={14} weight="bold" className="text-green-600" /> : <Copy size={14} />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+              <span className="text-[10px] text-zinc-500 font-mono">expires {new Date(share.snapshot.expires_at).toLocaleDateString()}</span>
+            </div>
+          )}
         </div>
       )}
 

@@ -19,6 +19,7 @@ import KnowledgeBase from "@/pages/KnowledgeBase";
 import Macros from "@/pages/Macros";
 import Onboarding from "@/pages/Onboarding";
 import Handoff from "@/pages/Handoff";
+import HandoffPublic from "@/pages/HandoffPublic";
 import CaseNew from "@/pages/CaseNew";
 import "@/App.css";
 
@@ -45,6 +46,7 @@ export default function App() {
         <Toaster position="top-right" richColors />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/handoff/public/:token" element={<HandoffPublic />} />
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<Inbox />} />

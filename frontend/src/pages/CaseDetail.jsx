@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import SLABadge from "@/components/SLABadge";
 import { fmtRelative, fmtDateTime, priorityClass, statusClass } from "@/lib/format";
 import { CaretLeft, Sparkle, BookOpenText, ChatCircle, ClockClockwise, User, Warning } from "@phosphor-icons/react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export default function CaseDetail() {
   const { id } = useParams();
@@ -13,6 +14,8 @@ export default function CaseDetail() {
   const [note, setNote] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [posting, setPosting] = useState(false);
 
   useEffect(() => { load(); api.get("/users").then(r => setUsers(r.data)); /* eslint-disable-next-line */ }, [id]);
 
@@ -29,11 +32,18 @@ export default function CaseDetail() {
 
   const addNote = async () => {
     if (!note.trim()) return;
-    if (confirmSend && !window.confirm("This is a high-risk case. Confirm the reply is policy-compliant before sending.")) return;
-    await api.post(`/cases/${id}/notes`, { body: note });
-    setNote(""); setConfirmSend(false);
-    await load();
-    toast.success("Note added");
+    if (confirmSend) { setConfirmOpen(true); return; }
+    await doPost();
+  };
+
+  const doPost = async () => {
+    setPosting(true);
+    try {
+      await api.post(`/cases/${id}/notes`, { body: note });
+      setNote(""); setConfirmSend(false); setConfirmOpen(false);
+      await load();
+      toast.success("Note added");
+    } finally { setPosting(false); }
   };
 
   const generateDraft = async () => {
@@ -244,6 +254,49 @@ export default function CaseDetail() {
           </div>
         </aside>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent data-testid="high-risk-confirm-modal" className="max-w-lg rounded-none border border-zinc-200">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl tracking-tight flex items-center gap-2">
+              <Warning size={22} weight="fill" className="text-amber-500" />
+              High-Risk Case Confirmation
+            </DialogTitle>
+            <DialogDescription className="text-zinc-600 mt-2 leading-relaxed">
+              This reply is for a high-risk case (security / funds / KYC). Please review carefully before sending — replies from this queue can move customer money or unlock accounts.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-3 gap-0 border border-zinc-200 mt-2">
+            <div className="p-3 border-r border-zinc-200">
+              <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Topic</div>
+              <div className="font-mono text-sm mt-1">{c.ai_topic || "—"}</div>
+            </div>
+            <div className="p-3 border-r border-zinc-200">
+              <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">AI Risk</div>
+              <div className={`font-mono text-sm mt-1 ${c.ai_risk === "high" ? "text-red-600 font-medium" : ""}`}>{c.ai_risk || "—"}</div>
+            </div>
+            <div className="p-3">
+              <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Queue</div>
+              <div className="font-mono text-sm mt-1 truncate" title={c.queue_id}>{c.queue_id ? c.queue_id.slice(0, 8) + "…" : "—"}</div>
+            </div>
+          </div>
+
+          <div className="mt-3 border border-zinc-200 bg-zinc-50 p-3 max-h-48 overflow-y-auto">
+            <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-1">Reply preview</div>
+            <div className="text-xs font-mono whitespace-pre-wrap text-zinc-800">{note}</div>
+          </div>
+
+          <DialogFooter className="mt-4 flex gap-2 justify-end">
+            <button data-testid="confirm-cancel" onClick={() => setConfirmOpen(false)}
+              className="border border-zinc-300 px-4 py-2 text-sm hover:border-zinc-900 transition-colors">Cancel</button>
+            <button data-testid="confirm-send" onClick={doPost} disabled={posting}
+              className="bg-red-600 text-white px-4 py-2 text-sm hover:bg-red-700 transition-colors disabled:opacity-50">
+              {posting ? "Sending…" : "Confirm & Send"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

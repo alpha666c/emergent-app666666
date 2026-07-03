@@ -24,6 +24,8 @@ from models import (
 from auth import hash_password, verify_password, create_token, get_current_user_payload
 from ai import classify_case, generate_weekly_summary, rank_matches, score_similarity, draft_reply
 from routing import compute_sla_due, sla_status, match_queue, pick_agent, priority_from_ai
+from scheduler import start_scheduler, get_scheduler_status
+import secrets
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("supportops")
@@ -711,6 +713,72 @@ async def root():
     return {"service": "Touchline SupportOps Brain", "status": "ok"}
 
 
+# ---------- Scheduler status + Handoff snapshot ----------
+@api.get("/system/scheduler")
+async def scheduler_status(user: dict = Depends(current_user)):
+    if user["role"] not in ("admin", "lead"):
+        raise HTTPException(403, "Insufficient")
+    runs = await db.job_runs.find({}, {"_id": 0}).sort("ts", -1).to_list(20)
+    return {**get_scheduler_status(), "recent_runs": runs}
+
+
+@api.post("/handoff/share")
+async def enable_share(user: dict = Depends(current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(403, "Admin only")
+    # Invalidate any existing token for this company
+    await db.handoff_snapshots.delete_many({"company_id": user["company_id"]})
+    token = secrets.token_urlsafe(24)
+    expires = (utcnow() + timedelta(days=7)).isoformat()
+    await db.handoff_snapshots.insert_one({
+        "token": token, "company_id": user["company_id"],
+        "created_by": user["id"], "created_at": iso_now(), "expires_at": expires, "active": True,
+    })
+    return {"token": token, "expires_at": expires}
+
+
+@api.delete("/handoff/share")
+async def disable_share(user: dict = Depends(current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(403, "Admin only")
+    result = await db.handoff_snapshots.delete_many({"company_id": user["company_id"]})
+    return {"revoked": result.deleted_count}
+
+
+@api.get("/handoff/share/status")
+async def share_status(user: dict = Depends(current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(403, "Admin only")
+    snap = await db.handoff_snapshots.find_one({"company_id": user["company_id"], "active": True}, {"_id": 0})
+    return {"active": bool(snap), "snapshot": snap}
+
+
+@api.get("/handoff/public/{token}")
+async def public_snapshot(token: str):
+    snap = await db.handoff_snapshots.find_one({"token": token, "active": True}, {"_id": 0})
+    if not snap:
+        raise HTTPException(404, "Snapshot not found or revoked")
+    # Expiry check
+    if snap.get("expires_at") and snap["expires_at"] < iso_now():
+        raise HTTPException(410, "Snapshot expired")
+    company_id = snap["company_id"]
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    counts = {
+        "cases": await db.cases.count_documents({"company_id": company_id}),
+        "queues": await db.queues.count_documents({"company_id": company_id}),
+        "users": await db.users.count_documents({"company_id": company_id}),
+        "incidents": await db.incidents.count_documents({"company_id": company_id}),
+        "experiments": await db.experiments.count_documents({"company_id": company_id}),
+        "coaching": await db.coaching_sessions.count_documents({"company_id": company_id}),
+    }
+    return {
+        "company": {"name": company.get("name") if company else "Unknown"},
+        "counts": counts,
+        "generated_at": iso_now(),
+        "expires_at": snap.get("expires_at"),
+    }
+
+
 app.include_router(api)
 app.add_middleware(
     CORSMiddleware,
@@ -736,3 +804,8 @@ async def _startup():
             await _seed.seed()
         except Exception as e:
             logger.error(f"Seed failed: {e}")
+    # Activate scheduled jobs
+    try:
+        start_scheduler(db)
+    except Exception as e:
+        logger.error(f"Scheduler start failed: {e}")
