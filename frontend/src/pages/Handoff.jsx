@@ -3,13 +3,18 @@ import api from "@/lib/api";
 
 const SECTIONS = [
   {
-    id: "diff", title: "0. Diff vs v2",
+    id: "diff", title: "0. Diff vs v3 — UI/UX Upgrade",
     items: [
-      ["NEW APScheduler crons", "Two AsyncIOScheduler jobs registered at FastAPI startup: **weekly_qa_sampling** (Mon 00:00 UTC) and **weekly_summary** (Mon 00:15 UTC). Both wrap the same logic as manual endpoints, iterate every company, and log success/error to db.job_runs (visible in /api/system/scheduler)."],
-      ["NEW styled confirmation modal", "Replaced window.confirm() with a shadcn Dialog. Modal shows Topic / AI Risk / Queue grid + full reply preview. Cancel + Confirm & Send buttons. testids: high-risk-confirm-modal, confirm-cancel, confirm-send."],
-      ["NEW public snapshot", "Admin can enable a signed, 7-day, read-only URL /handoff/public/{token}. One active token per company; enabling revokes any previous token. Public page shows company + counters + product highlights only — no case data, no PII."],
-      ["NEW API endpoints", "GET /system/scheduler (admin/lead) · POST /handoff/share (admin) · DELETE /handoff/share (admin) · GET /handoff/share/status (admin) · GET /handoff/public/{token} (unauthenticated, token-gated)."],
-      ["Files", "NEW: backend/scheduler.py, frontend/src/pages/HandoffPublic.jsx. MODIFIED: server.py, CaseDetail.jsx, Handoff.jsx, App.js. No data models or existing API contracts changed."],
+      ["Layout", "**Three-panel layout** implemented across all authenticated views: collapsible left sidebar (56px collapsed, 224px expanded, persisted to localStorage) → center list → right detail panel. New shared **TopBar** (h-14, sticky, backdrop-blur) with workspace label breadcrumb, global search, War-Room shortcut, New Case CTA, and user avatar/role indicator."],
+      ["Inbox rebuilt", "Full three-panel split view (Zendesk/Front-style): left sidebar navigation, center 420-440px case list (with inline KPI strip, filters, search, active-filter pills), right pane renders selected case via CasePanel. Row selection is now instant (no route change) with a left-border accent + subtle blue tint. Auto-selects the first case on load."],
+      ["CasePanel extracted", "New `components/CasePanel.jsx` — the case detail body factored out and reused by both the Inbox right pane and the `/cases/:id` route. Same functionality, one implementation."],
+      ["Composer refined", "Compact action bar in the composer header with 'Draft with AI' as the primary icon-button; textarea is edge-to-edge, borderless, monospace; footer button is icon+label ('Post reply' / 'Review & confirm'). High-risk banner stays inline as a subtle amber signal."],
+      ["High-risk Dialog polished", "Restructured shadcn Dialog: amber warning icon block, tight typography hierarchy, 3-column risk grid, reply preview in a bordered surface, primary/secondary button pairing with PaperPlaneRight icon on Confirm."],
+      ["Chip system", "New `components/Chip.jsx` with kinds: sla, priority, status, risk, neutral, tag, vip, info, incident + size scale (xs/sm/md). Consistent uppercase mono chips across Inbox rows, CasePanel header, customer profile, war-room, etc."],
+      ["Skeleton loading states", "New `components/Skeleton.jsx` with `ListSkeleton` and `DetailSkeleton` — replaces bare 'Loading…' text in Inbox list and CasePanel."],
+      ["Micro-UX", "Row hover with border-l-transparent → border-l-[#002FA7]; selection highlight (bg-blue-50/60 + accent border); sidebar collapse transition (200ms); topbar search bg swap on focus; consistent uppercase [10px] tracking-widest labels; consistent card headers (px-4 py-2 bg-white border-b)."],
+      ["Responsive", "Sidebar collapsible on demand. Case list hides right pane on <md, exposes full-width list; top-bar hides search on <md, hides War-Room label on <lg, hides user name/role on <lg."],
+      ["Preservation", "**Zero backend changes.** No new API routes, no new entities, no changed payload shapes. All 30+ existing endpoints intact. All existing route names preserved. Only `Inbox.jsx`, `CaseDetail.jsx`, `Sidebar.jsx`, and `App.js` restructured; new files are additive: `TopBar.jsx`, `CasePanel.jsx`, `Chip.jsx`, `Skeleton.jsx`."],
     ],
   },
   {
@@ -162,7 +167,7 @@ export default function Handoff() {
     <div className="p-6 lg:p-10 max-w-5xl">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering handoff · v3</p>
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering handoff · v4</p>
           <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tighter mt-1">SITREP</h1>
           <p className="text-sm text-zinc-600 mt-2 max-w-3xl">Live snapshot of the Touchline SupportOps Brain build for review + next-iteration planning.</p>
         </div>

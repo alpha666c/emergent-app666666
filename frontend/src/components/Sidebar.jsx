@@ -1,101 +1,135 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
-  House, Ticket, Users, Books, Broadcast, Flask, Trophy,
-  ChartLine, GraduationCap, SignOut, PottedPlant, Star,
+  Ticket, Users, Books, Broadcast, Flask, Trophy, ChartLine,
+  GraduationCap, SignOut, PottedPlant, Star, CaretLeft, CaretRight,
+  House, ChatCircle, ClipboardText,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth";
 
-const Item = ({ to, icon: Icon, label, testId }) => (
+const STORAGE_KEY = "touchline_sidebar_collapsed";
+
+const Item = ({ to, icon: Icon, label, testId, collapsed }) => (
   <NavLink
     to={to}
     end
     data-testid={testId}
+    title={collapsed ? label : undefined}
     className={({ isActive }) =>
-      `flex items-center gap-3 px-4 py-2.5 text-sm border-l-2 transition-colors duration-150 ${
+      `flex items-center gap-3 ${collapsed ? "px-3 py-2.5 justify-center" : "px-4 py-2"} text-sm border-l-2 transition-colors duration-150 ${
         isActive
           ? "border-[#002FA7] bg-zinc-50 text-zinc-900 font-medium"
           : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
       }`
     }
   >
-    <Icon size={18} weight="regular" />
-    <span>{label}</span>
+    <Icon size={17} weight="regular" className="shrink-0" />
+    {!collapsed && <span className="truncate">{label}</span>}
   </NavLink>
+);
+
+const SectionLabel = ({ children, collapsed }) => collapsed ? (
+  <div className="mx-3 mt-3 mb-1 h-px bg-zinc-200" />
+) : (
+  <div className="px-4 pt-3 pb-1 text-[9px] uppercase tracking-[0.15em] text-zinc-400 font-semibold">{children}</div>
 );
 
 export default function Sidebar() {
   const { user, company, logout } = useAuth();
-  const nav = useNavigate();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1");
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0"); }, [collapsed]);
+
   const isManager = user?.role === "lead" || user?.role === "admin";
-  const isAdmin = user?.role === "admin";
 
   return (
-    <aside data-testid="sidebar" className="w-60 shrink-0 border-r border-zinc-200 bg-white flex flex-col h-screen sticky top-0">
-      <div className="px-4 py-5 border-b border-zinc-200">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#002FA7] text-white flex items-center justify-center font-display font-bold">T</div>
-          <div>
-            <div className="font-display font-bold text-[15px] tracking-tight leading-none">Touchline</div>
-            <div className="text-[10px] uppercase tracking-widest text-zinc-500 mt-0.5">SupportOps Brain</div>
-          </div>
-        </div>
-        {company && (
-          <div className="mt-3 text-xs text-zinc-500 truncate" data-testid="sidebar-company">{company.name}</div>
-        )}
-      </div>
-
-      <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto">
-        <div className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Play</div>
-        <Item to="/inbox" icon={Ticket} label="Inbox" testId="nav-inbox" />
-        <Item to="/queues" icon={PottedPlant} label="Queues" testId="nav-queues" />
-
-        {isManager && (
-          <>
-            <div className="px-4 pt-4 pb-1 text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Coach</div>
-            <Item to="/team" icon={Users} label="Team Performance" testId="nav-team" />
-            <Item to="/war-room" icon={Broadcast} label="Incident War-Room" testId="nav-war-room" />
-            <Item to="/coaching" icon={GraduationCap} label="Coaching Board" testId="nav-coaching" />
-            <Item to="/qa" icon={Star} label="QA Reviews" testId="nav-qa" />
-          </>
-        )}
-
-        {isManager && (
-          <>
-            <div className="px-4 pt-4 pb-1 text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Analyze</div>
-            <Item to="/dashboard" icon={ChartLine} label="Ops Dashboard" testId="nav-dashboard" />
-            <Item to="/experiments" icon={Flask} label="Experiments" testId="nav-experiments" />
-            <Item to="/summaries" icon={Trophy} label="Match Reports" testId="nav-summaries" />
-          </>
-        )}
-
-        <div className="px-4 pt-4 pb-1 text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Library</div>
-        <Item to="/knowledge" icon={Books} label="Knowledge Base" testId="nav-knowledge" />
-        <Item to="/macros" icon={Ticket} label="Macros" testId="nav-macros" />
-        <Item to="/onboarding" icon={House} label="Getting Started" testId="nav-onboarding" />
-      </nav>
-
-      <div className="border-t border-zinc-200 p-3">
-        <div className="flex items-center gap-2">
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="" className="w-8 h-8 object-cover" />
-          ) : (
-            <div className="w-8 h-8 bg-zinc-900 text-white text-xs flex items-center justify-center font-medium">
-              {user?.name?.split(" ").map(n => n[0]).join("").slice(0, 2)}
+    <aside
+      data-testid="sidebar"
+      data-collapsed={collapsed}
+      className={`shrink-0 border-r border-zinc-200 bg-white flex flex-col h-screen sticky top-0 transition-[width] duration-200 ${collapsed ? "w-14" : "w-56"}`}
+    >
+      {/* Brand */}
+      <div className={`border-b border-zinc-200 h-14 flex items-center ${collapsed ? "justify-center px-2" : "px-4"}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 bg-[#002FA7] text-white flex items-center justify-center font-display font-bold shrink-0">T</div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="font-display font-bold text-[15px] tracking-tight leading-none truncate">Touchline</div>
+              <div className="text-[9px] uppercase tracking-[0.15em] text-zinc-500 mt-0.5 truncate" title={company?.name}>{company?.name || "SupportOps Brain"}</div>
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-zinc-900 truncate" data-testid="sidebar-user-name">{user?.name}</div>
-            <div className="text-[10px] uppercase tracking-widest text-zinc-500">{user?.role}</div>
-          </div>
-          <button
-            data-testid="logout-btn"
-            onClick={logout}
-            title="Sign out"
-            className="text-zinc-400 hover:text-zinc-900 transition-colors"
-          >
+        </div>
+      </div>
+
+      <nav className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
+        <SectionLabel collapsed={collapsed}>Work</SectionLabel>
+        <Item to="/inbox" icon={Ticket} label="Inbox" testId="nav-inbox" collapsed={collapsed} />
+        <Item to="/queues" icon={PottedPlant} label="Queues" testId="nav-queues" collapsed={collapsed} />
+
+        {isManager && (
+          <>
+            <SectionLabel collapsed={collapsed}>Coach</SectionLabel>
+            <Item to="/team" icon={Users} label="Team" testId="nav-team" collapsed={collapsed} />
+            <Item to="/war-room" icon={Broadcast} label="War-Room" testId="nav-war-room" collapsed={collapsed} />
+            <Item to="/coaching" icon={GraduationCap} label="Coaching" testId="nav-coaching" collapsed={collapsed} />
+            <Item to="/qa" icon={Star} label="QA" testId="nav-qa" collapsed={collapsed} />
+
+            <SectionLabel collapsed={collapsed}>Analyze</SectionLabel>
+            <Item to="/dashboard" icon={ChartLine} label="Ops Dashboard" testId="nav-dashboard" collapsed={collapsed} />
+            <Item to="/experiments" icon={Flask} label="Experiments" testId="nav-experiments" collapsed={collapsed} />
+            <Item to="/summaries" icon={Trophy} label="Match Reports" testId="nav-summaries" collapsed={collapsed} />
+          </>
+        )}
+
+        <SectionLabel collapsed={collapsed}>Library</SectionLabel>
+        <Item to="/knowledge" icon={Books} label="Knowledge" testId="nav-knowledge" collapsed={collapsed} />
+        <Item to="/macros" icon={ChatCircle} label="Macros" testId="nav-macros" collapsed={collapsed} />
+
+        <SectionLabel collapsed={collapsed}>Guide</SectionLabel>
+        <Item to="/onboarding" icon={House} label="Getting Started" testId="nav-onboarding" collapsed={collapsed} />
+        {user?.role === "admin" && (
+          <Item to="/handoff" icon={ClipboardText} label="Handoff" testId="nav-handoff" collapsed={collapsed} />
+        )}
+      </nav>
+
+      {/* Collapse toggle */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        data-testid="sidebar-collapse-btn"
+        title={collapsed ? "Expand" : "Collapse"}
+        className={`border-t border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50 transition-colors ${collapsed ? "py-3 flex justify-center" : "px-4 py-2 flex items-center gap-2 text-xs"}`}
+      >
+        {collapsed ? <CaretRight size={14} /> : <><CaretLeft size={14} /><span>Collapse</span></>}
+      </button>
+
+      {/* User */}
+      <div className={`border-t border-zinc-200 ${collapsed ? "p-2 flex justify-center" : "p-3"}`}>
+        {collapsed ? (
+          <button onClick={logout} data-testid="logout-btn" title="Sign out" className="text-zinc-400 hover:text-zinc-900 transition-colors">
             <SignOut size={18} />
           </button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} className="w-8 h-8 object-cover" alt="" />
+            ) : (
+              <div className="w-8 h-8 bg-zinc-900 text-white text-xs flex items-center justify-center font-medium">
+                {user?.name?.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-zinc-900 truncate" data-testid="sidebar-user-name">{user?.name}</div>
+              <div className="text-[10px] uppercase tracking-widest text-zinc-500">{user?.role}</div>
+            </div>
+            <button
+              data-testid="logout-btn"
+              onClick={logout}
+              title="Sign out"
+              className="text-zinc-400 hover:text-zinc-900 transition-colors"
+            >
+              <SignOut size={18} />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

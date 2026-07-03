@@ -3,9 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from "rea
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import Login from "@/pages/Login";
 import Inbox from "@/pages/Inbox";
 import CaseDetail from "@/pages/CaseDetail";
+import CaseNew from "@/pages/CaseNew";
 import Queues from "@/pages/Queues";
 import TeamPerformance from "@/pages/TeamPerformance";
 import OpsDashboard from "@/pages/OpsDashboard";
@@ -20,7 +22,6 @@ import Macros from "@/pages/Macros";
 import Onboarding from "@/pages/Onboarding";
 import Handoff from "@/pages/Handoff";
 import HandoffPublic from "@/pages/HandoffPublic";
-import CaseNew from "@/pages/CaseNew";
 import "@/App.css";
 
 function ProtectedLayout() {
@@ -32,9 +33,12 @@ function ProtectedLayout() {
   return (
     <div className="flex min-h-screen bg-white">
       <Sidebar />
-      <main className="flex-1 min-w-0 overflow-x-hidden">
-        <Outlet />
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <TopBar />
+        <main className="flex-1 min-w-0 overflow-x-hidden">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
