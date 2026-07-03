@@ -19,6 +19,7 @@ from models import (
     KnowledgeItem, Macro, QASample, QAReviewInput, WeeklySummary,
     Incident, IncidentCreate, IncidentUpdate,
     Experiment, ExperimentCreate, CoachingSession, CoachingCreate,
+    AuditLog, Ruleset, RulesetUpdate,
     iso_now, utcnow, new_id,
 )
 from auth import hash_password, verify_password, create_token, get_current_user_payload
@@ -59,6 +60,21 @@ async def log_event(case_id: str, event_type: str, actor_type: str, actor_id: Op
     await db.case_events.insert_one(ev.model_dump())
 
 
+async def log_audit(company_id: str, actor_type: str, actor_id: Optional[str], entity_type: str, entity_id: Optional[str], event_type: str, summary: str, payload: Dict[str, Any]):
+    """Global audit log entry for Logbook."""
+    entry = AuditLog(
+        company_id=company_id,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        event_type=event_type,
+        summary=summary,
+        payload=payload or {},
+    )
+    await db.audit_logs.insert_one(entry.model_dump())
+
+
 def to_iso(dt: datetime) -> str:
     return dt.isoformat()
 
@@ -75,6 +91,7 @@ async def register(req: RegisterRequest):
                 role="admin", company_id=company.id)
     await db.users.insert_one(user.model_dump())
     token = create_token(user.id, company.id, user.role)
+    await log_audit(company.id, "user", user.id, "user", user.id, "company_created", f"Company {company.name} created by {user.name}", {})
     return {"token": token, "user": strip_pw(user.model_dump()), "company": company.model_dump()}
 
 
@@ -85,6 +102,7 @@ async def login(req: LoginRequest):
         raise HTTPException(401, "Invalid credentials")
     token = create_token(user["id"], user["company_id"], user["role"])
     company = await db.companies.find_one({"id": user["company_id"]}, {"_id": 0})
+    await log_audit(user["company_id"], "user", user["id"], "user", user["id"], "login", f"{user['email']} logged in", {})
     return {"token": token, "user": strip_pw(user), "company": company}
 
 
@@ -273,6 +291,7 @@ async def create_case(payload: CaseCreate, user: dict = Depends(current_user)):
     await db.cases.insert_one(case.model_dump())
     await log_event(case.id, "created", "user", user["id"], {"channel": case.channel})
     await log_event(case.id, "ai_classification", "system", None, {"topic": case.ai_topic, "intent": case.ai_intent, "risk": case.ai_risk})
+    await log_audit(user["company_id"], "user", user["id"], "case", case.id, "case_created", f"Case {case.subject} created", {"priority": case.priority, "queue_id": case.queue_id})
     return case.model_dump()
 
 
@@ -298,6 +317,8 @@ async def update_case(case_id: str, payload: CaseUpdate, user: dict = Depends(cu
     await db.cases.update_one({"id": case_id}, {"$set": updates})
     for etype, payload_e in events:
         await log_event(case_id, etype, "user", user["id"], payload_e)
+    if events:
+        await log_audit(user["company_id"], "user", user["id"], "case", case_id, "case_updated", "Case updated", {"events": events})
     updated = await db.cases.find_one({"id": case_id}, {"_id": 0})
     updated["sla_status"] = sla_status(updated)
     return updated
@@ -314,6 +335,7 @@ async def add_note(case_id: str, body: NoteCreate, user: dict = Depends(current_
         updates["first_response_at"] = iso_now()
         await db.cases.update_one({"id": case_id}, {"$set": updates})
     await log_event(case_id, "note", "user", user["id"], {"body": body.body, "author": user["name"]})
+    await log_audit(user["company_id"], "user", user["id"], "case", case_id, "note_added", f"Note added to case {case_id}", {"author": user["name"]})
     return {"ok": True}
 
 
@@ -331,6 +353,7 @@ async def ai_draft(case_id: str, user: dict = Depends(current_user)):
     requires_confirmation = c.get("ai_risk") == "high" or c.get("ai_topic") in ("security", "withdrawal", "kyc")
     await log_event(case_id, "ai_classification", "system", None,
                     {"action": "draft_generated", "grounded_kb": [k["id"] for k in ranked_kb], "requires_confirmation": requires_confirmation})
+    await log_audit(user["company_id"], "ai", None, "case", case_id, "ai_draft", "AI draft generated", {"requires_confirmation": requires_confirmation})
     return {"draft": draft, "requires_confirmation": requires_confirmation, "grounded_kb": ranked_kb}
 
 
@@ -350,6 +373,7 @@ async def bulk_reassign(case_ids: List[str], assigned_user_id: str, user: dict =
     )
     for cid in case_ids:
         await log_event(cid, "reassignment", "user", user["id"], {"to": assigned_user_id, "bulk": True})
+    await log_audit(user["company_id"], "user", user["id"], "case", None, "bulk_reassign", f"Bulk reassigned {len(case_ids)} cases", {"to": assigned_user_id})
     return {"updated": result.modified_count}
 
 
@@ -367,6 +391,7 @@ async def create_kb(item: KnowledgeItem, user: dict = Depends(current_user)):
     item.owner_user_id = user["id"]
     item.last_reviewed_at = iso_now()
     await db.knowledge_items.insert_one(item.model_dump())
+    await log_audit(user["company_id"], "user", user["id"], "ruleset", None, "kb_created", f"KB item {item.title} created", {})
     return item.model_dump()
 
 
@@ -382,6 +407,7 @@ async def create_macro(m: Macro, user: dict = Depends(current_user)):
     m.company_id = user["company_id"]
     m.owner_user_id = user["id"]
     await db.macros.insert_one(m.model_dump())
+    await log_audit(user["company_id"], "user", user["id"], "ruleset", None, "macro_created", f"Macro {m.name} created", {})
     return m.model_dump()
 
 
@@ -540,6 +566,7 @@ async def create_incident(payload: IncidentCreate, user: dict = Depends(current_
         timeline=[{"ts": iso_now(), "actor": user["name"], "note": f"Incident declared ({payload.severity})."}],
     )
     await db.incidents.insert_one(inc.model_dump())
+    await log_audit(user["company_id"], "user", user["id"], "incident", inc.id, "incident_created", f"Incident {inc.title} declared", {"severity": inc.severity})
     return inc.model_dump()
 
 
@@ -577,6 +604,7 @@ async def update_incident(iid: str, payload: IncidentUpdate, user: dict = Depend
     updates["timeline"] = timeline
 
     await db.incidents.update_one({"id": iid}, {"$set": updates})
+    await log_audit(user["company_id"], "user", user["id"], "incident", iid, "incident_updated", "Incident updated", updates)
     return await db.incidents.find_one({"id": iid}, {"_id": 0})
 
 
@@ -608,6 +636,7 @@ async def create_experiment(payload: ExperimentCreate, user: dict = Depends(curr
     exp = Experiment(name=payload.name, hypothesis=payload.hypothesis, tag=payload.tag,
                      company_id=user["company_id"], owner_user_id=user["id"])
     await db.experiments.insert_one(exp.model_dump())
+    await log_audit(user["company_id"], "user", user["id"], "experiment", exp.id, "experiment_created", f"Experiment {exp.name} created", {})
     return exp.model_dump()
 
 
@@ -633,6 +662,7 @@ async def sample_now(user: dict = Depends(current_user)):
                           period_start=week_ago)
         await db.qa_samples.insert_one(sample.model_dump())
         created += 1
+    await log_audit(user["company_id"], "user", user["id"], "qa", None, "qa_sample_now", f"QA sample created for {created} agents", {})
     return {"created": created}
 
 
@@ -656,6 +686,7 @@ async def qa_review(sid: str, payload: QAReviewInput, user: dict = Depends(curre
     updates["reviewed_by"] = user["id"]
     updates["reviewed_at"] = iso_now()
     await db.qa_samples.update_one({"id": sid}, {"$set": updates})
+    await log_audit(user["company_id"], "user", user["id"], "qa", sid, "qa_review", "QA review submitted", updates)
     return await db.qa_samples.find_one({"id": sid}, {"_id": 0})
 
 
@@ -680,6 +711,7 @@ async def create_coaching(payload: CoachingCreate, user: dict = Depends(current_
         follow_up_at=payload.follow_up_at,
     )
     await db.coaching_sessions.insert_one(session.model_dump())
+    await log_audit(user["company_id"], "user", user["id"], "coaching", session.id, "coaching_created", "Coaching session created", {})
     return session.model_dump()
 
 
@@ -688,6 +720,7 @@ async def close_coaching(sid: str, user: dict = Depends(current_user)):
     if user["role"] not in ("admin", "lead"):
         raise HTTPException(403, "Only admins/leads")
     await db.coaching_sessions.update_one({"id": sid}, {"$set": {"status": "closed"}})
+    await log_audit(user["company_id"], "user", user["id"], "coaching", sid, "coaching_closed", "Coaching session closed", {})
     return {"ok": True}
 
 
@@ -705,12 +738,64 @@ async def gen_summary(user: dict = Depends(current_user)):
         period_end=now_.isoformat(), body=body, metrics=metrics,
     )
     await db.weekly_summaries.insert_one(summary.model_dump())
+    await log_audit(user["company_id"], "ai", None, "ruleset", None, "weekly_summary_generated", "Weekly summary generated", {})
     return summary.model_dump()
 
 
 @api.get("/summaries")
 async def list_summaries(user: dict = Depends(current_user)):
     return await db.weekly_summaries.find({"company_id": user["company_id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+# ---------- Ruleset ----------
+@api.get("/ruleset")
+async def get_ruleset(user: dict = Depends(current_user)):
+    doc = await db.rulesets.find_one({"company_id": user["company_id"]}, {"_id": 0})
+    if not doc:
+        # Default seeded ruleset
+        default = Ruleset(
+            company_id=user["company_id"],
+            sections=[
+                {
+                    "key": "first-response",
+                    "title": "First Response Principles",
+                    "body": "Respond within the SLA, acknowledge the issue, avoid promising outcomes you cannot guarantee.",
+                },
+                {
+                    "key": "high-risk",
+                    "title": "High-Risk Cases",
+                    "body": "Security, withdrawals, and KYC escalations must be reviewed by a lead before resolution. AI drafts are suggestions only.",
+                },
+                {
+                    "key": "broadcasts",
+                    "title": "Incident Broadcast Rules",
+                    "body": "Only leads/admins may send broadcasts from War-Room. Each broadcast must link an Incident and include a timeboxed expectation.",
+                },
+                {
+                    "key": "ai",
+                    "title": "AI Use Policy",
+                    "body": "AI assists classification and drafting but cannot execute account actions. Always ground replies in KB and macros.",
+                },
+                {
+                    "key": "qa-coaching",
+                    "title": "QA & Coaching",
+                    "body": "QA samples are for learning, not punishment. Coaching sessions must end with 1–3 concrete action items.",
+                },
+            ],
+        )
+        await db.rulesets.insert_one(default.model_dump())
+        return default.model_dump()
+    return doc
+
+
+@api.post("/ruleset")
+async def update_ruleset(payload: RulesetUpdate, user: dict = Depends(current_user)):
+    if user["role"] not in ("admin", "lead"):
+        raise HTTPException(403, "Only admins/leads")
+    ruleset = Ruleset(company_id=user["company_id"], sections=payload.sections)
+    await db.rulesets.update_one({"company_id": user["company_id"]}, {"$set": ruleset.model_dump()}, upsert=True)
+    await log_audit(user["company_id"], "user", user["id"], "ruleset", None, "ruleset_updated", "Ruleset updated", {"section_count": len(payload.sections)})
+    return ruleset.model_dump()
 
 
 # ---------- Health ----------
@@ -740,6 +825,7 @@ async def enable_share(user: dict = Depends(current_user)):
         "token": token, "company_id": user["company_id"],
         "created_by": user["id"], "created_at": iso_now(), "expires_at": expires, "active": True,
     })
+    await log_audit(user["company_id"], "user", user["id"], "ruleset", None, "handoff_share_enabled", "Handoff public snapshot enabled", {"token": token})
     return {"token": token, "expires_at": expires}
 
 
@@ -748,6 +834,7 @@ async def disable_share(user: dict = Depends(current_user)):
     if user["role"] != "admin":
         raise HTTPException(403, "Admin only")
     result = await db.handoff_snapshots.delete_many({"company_id": user["company_id"]})
+    await log_audit(user["company_id"], "user", user["id"], "ruleset", None, "handoff_share_disabled", "Handoff public snapshot revoked", {"revoked": result.deleted_count})
     return {"revoked": result.deleted_count}
 
 
@@ -789,6 +876,26 @@ async def public_snapshot(token: str):
         "generated_at": iso_now(),
         "expires_at": snap.get("expires_at"),
     }
+
+
+# ---------- Logbook ----------
+@api.get("/logs")
+async def list_logs(
+    user: dict = Depends(current_user),
+    entity_type: Optional[str] = Query(None),
+    event_type: Optional[str] = Query(None),
+    actor_type: Optional[str] = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+):
+    q: Dict[str, Any] = {"company_id": user["company_id"]}
+    if entity_type:
+        q["entity_type"] = entity_type
+    if event_type:
+        q["event_type"] = event_type
+    if actor_type:
+        q["actor_type"] = actor_type
+    docs = await db.audit_logs.find(q, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return docs
 
 
 app.include_router(api)
