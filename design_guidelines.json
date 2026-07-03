@@ -1,0 +1,160 @@
+{
+  "project_name": "SupportOps Brain",
+  "theme": "Light",
+  "archetype": "Archetype 4: Swiss & High-Contrast",
+  "design_philosophy": "Objective, rigid, and functional. High-density data layout optimized for operational clarity. Uses progressive disclosure and a modular 'Control Room' grid to manage complex support ops without cognitive overload. Color is strictly used for function (status/SLA), not decoration.",
+  "colors": {
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#F4F4F5",
+      "tertiary": "#E4E4E7"
+    },
+    "text": {
+      "primary": "#09090B",
+      "secondary": "#52525B",
+      "tertiary": "#A1A1AA",
+      "inverse": "#FFFFFF"
+    },
+    "brand": {
+      "primary": "#002FA7",
+      "primary_hover": "#00227A",
+      "accent": "#000000"
+    },
+    "semantic": {
+      "danger": "#DC2626",
+      "danger_bg": "#FEF2F2",
+      "warning": "#D97706",
+      "warning_bg": "#FFFBEB",
+      "success": "#16A34A",
+      "success_bg": "#F0FDF4",
+      "info": "#2563EB",
+      "info_bg": "#EFF6FF"
+    },
+    "border": {
+      "default": "#E4E4E7",
+      "focus": "#002FA7"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "heading": "'Cabinet Grotesk', sans-serif",
+      "body": "'IBM Plex Sans', sans-serif",
+      "mono": "'IBM Plex Mono', monospace"
+    },
+    "font_imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');",
+      "@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700,400,900&display=swap');"
+    ],
+    "scale": {
+      "h1": "text-4xl tracking-tighter font-bold",
+      "h2": "text-2xl tracking-tight font-bold",
+      "h3": "text-xl tracking-tight font-semibold",
+      "h4": "text-lg font-medium",
+      "body": "text-sm leading-relaxed",
+      "small": "text-xs uppercase tracking-[0.2em] font-semibold"
+    }
+  },
+  "layout_and_spacing": {
+    "strategy": "The Control Room Grid",
+    "sidebar": "Collapsible left-sidebar with 1px right border. No background tint, purely stark white.",
+    "container": "Max-width fully fluid (100%), no boxed layout. Padding p-6 or p-8 inside main content.",
+    "grid": {
+      "base": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+      "gap": "gap-4 md:gap-6"
+    },
+    "radius": "rounded-none",
+    "borders": "Expose the skeleton. Use 1px solid borders (border-zinc-200) extensively for tables, cards, and sections to create a rigid grid.",
+    "shadows": "None. Flat, high-contrast UI."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#002FA7] text-white rounded-none font-medium px-4 py-2 hover:bg-[#00227A] transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-[#002FA7]",
+      "secondary": "bg-white text-zinc-900 border border-zinc-200 rounded-none font-medium px-4 py-2 hover:bg-zinc-50 transition-colors",
+      "ghost": "bg-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-none px-4 py-2 transition-colors"
+    },
+    "cards": {
+      "default": "bg-white border border-zinc-200 rounded-none p-4 or p-6",
+      "interactive": "bg-white border border-zinc-200 rounded-none p-4 hover:border-zinc-400 transition-colors cursor-pointer"
+    },
+    "tables": {
+      "style": "Dense tabular layout. text-sm. 1px bottom border per row. No alternating backgrounds. Left-align text, right-align numbers.",
+      "header": "text-xs uppercase tracking-[0.1em] text-zinc-500 font-semibold border-b-2 border-zinc-200 pb-2"
+    },
+    "badges": {
+      "sla_breach": "bg-red-600 text-white text-xs font-mono px-2 py-0.5 rounded-none",
+      "sla_warning": "bg-amber-500 text-white text-xs font-mono px-2 py-0.5 rounded-none",
+      "sla_healthy": "bg-zinc-100 text-zinc-600 text-xs font-mono px-2 py-0.5 rounded-none border border-zinc-200",
+      "ai_classification": "bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-none border border-blue-200 inline-flex items-center gap-1"
+    },
+    "inputs": {
+      "default": "border border-zinc-300 rounded-none px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#002FA7] focus:border-[#002FA7] bg-white w-full"
+    }
+  },
+  "motion_and_interactions": {
+    "hover": "Explicit text and border color changes. e.g., hover:border-zinc-400, hover:text-zinc-900.",
+    "transitions": "Fast and snappy. duration-150 ease-out.",
+    "focus": "High contrast ring. focus:outline-none focus:ring-2 focus:ring-[#002FA7] focus:ring-offset-1."
+  },
+  "media_urls": {
+    "avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MzA4MDAyM3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Female agent portrait",
+        "category": "agent_avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MzA4MDAyM3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Male manager portrait",
+        "category": "manager_avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1699899657680-421c2c2d5064?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4MzA4MDAyM3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Female lead portrait",
+        "category": "lead_avatar"
+      },
+      {
+        "url": "https://images.pexels.com/photos/26872232/pexels-photo-26872232.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Male ops portrait",
+        "category": "ops_avatar"
+      }
+    ],
+    "backgrounds": [
+      {
+        "url": "https://images.unsplash.com/photo-1572635148687-307f8ca9b737?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMGJhY2tncm91bmQlMjB3aGl0ZXxlbnwwfHx8fDE3ODMxMTAxOTd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "White wavy abstract geometry",
+        "category": "login_background"
+      }
+    ],
+    "logos": [
+      {
+        "url": "https://images.unsplash.com/photo-1669220339242-c12788586902?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjBzdGFydHVwJTIwbG9nb3xlbnwwfHx8fDE3ODMxMTAyMTB8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Company integration logo 1",
+        "category": "integration_logo"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1654277041218-84424c78f0ae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBzdGFydHVwJTIwbG9nb3xlbnwwfHx8fDE3ODMxMTAyMTB8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Company integration logo 2",
+        "category": "integration_logo"
+      }
+    ]
+  },
+  "iconography": {
+    "library": "@phosphor-icons/react",
+    "style": "weight='regular' for standard, weight='fill' for active tabs/urgent statuses.",
+    "installation": "yarn add @phosphor-icons/react"
+  },
+  "accessibility": {
+    "contrast": "Ensure strictly APCA WCAG AA standards. Text against background must have a minimum 4.5:1 ratio.",
+    "testing": "All interactive and key informational elements MUST include a `data-testid` attribute in kebab-case."
+  },
+  "instructions_to_main_agent": [
+    "Inject Google Fonts in the main index.html to load Cabinet Grotesk, IBM Plex Sans, and IBM Plex Mono.",
+    "Avoid Shadcn 'Cards' default roundness; override with `rounded-none` and flat shadows for the strict Swiss Brutalism look.",
+    "Build the dashboard using a collapsible left-sidebar and a top-bar dedicated to global filters (e.g., date range, team selector).",
+    "For the Agent Inbox: Use dense tables. Add SLA countdown badges using the mono font and red/amber semantic colors.",
+    "For Case Detail: Create an event timeline on the right, conversation in center, AI macro suggestions floating or pinned to bottom.",
+    "For Manager Dashboard: Use grid-cols-4 for top-line metrics (Cards), and a wide table for agent performance.",
+    "Use Recharts for Ops Leadership charts (Backlog trends, topic distribution). Apply sharp geometric designs to the charts, disabling curved lines (type='linear' not 'monotone').",
+    "Use Phosphor Icons exclusively. Ensure data-testid attributes are populated across all buttons, nav items, and stat blocks."
+  ]
+}
