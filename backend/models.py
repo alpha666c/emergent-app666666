@@ -285,3 +285,35 @@ class CoachingCreate(BaseModel):
     notes: str
     linked_qa_id: Optional[str] = None
     follow_up_at: Optional[str] = None
+
+
+# ---------- Audit Log ----------
+AuditActorType = Literal["user", "system", "ai"]
+AuditEntityType = Literal["case", "incident", "ruleset", "experiment", "qa", "coaching", "user"]
+
+
+class AuditLog(BaseDoc):
+    company_id: str
+    actor_type: AuditActorType = "system"
+    actor_id: Optional[str] = None
+    entity_type: AuditEntityType
+    entity_id: Optional[str] = None
+    event_type: str
+    summary: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------- Ruleset ----------
+class RulesetSection(BaseModel):
+    key: str
+    title: str
+    body: str
+
+
+class Ruleset(BaseDoc):
+    company_id: str
+    sections: List[RulesetSection] = Field(default_factory=list)
+
+
+class RulesetUpdate(BaseModel):
+    sections: List[RulesetSection]
